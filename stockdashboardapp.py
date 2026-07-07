@@ -82,14 +82,14 @@ ma_short = st.sidebar.slider("Short EMA Signal Line", min_value=5, max_value=50,
 ma_long = st.sidebar.slider("Long EMA Base Line", min_value=10, max_value=100, value=26)
 
 # ==========================================
-# DYNAMIC PIPELINE EXTRACTION MATRIX
+# FIXED DYNAMIC PIPELINE EXTRACTION MATRIX
 # ==========================================
 @st.cache_data(ttl=1800)
-def fetch_full_market_data(ticker, prd, rsi_w, ma_s, ma_l):
+def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
     # Quant pricing data
     raw_df = yf.download(ticker, period=prd, interval="1d")
     if raw_df.empty:
-        return None, None
+        return None
     
     df = raw_df.copy()
     if isinstance(df.columns, pd.MultiIndex):
@@ -108,14 +108,12 @@ def fetch_full_market_data(ticker, prd, rsi_w, ma_s, ma_l):
     
     df['Target'] = np.where(df['Returns'].shift(-1) > 0, 1, 0)
     df.dropna(inplace=True)
-    
-    # Fundamental corporate data mining via single ticker instance object
-    ticker_obj = yf.Ticker(ticker)
-    
-    return df, ticker_obj
+    return df
 
 with st.spinner("Compiling cross-paradigm databases and auditing financial log streams..."):
-    df, ticker_obj = fetch_full_market_data(ticker_input, period, rsi_window, ma_short, ma_long)
+    df = fetch_quant_data(ticker_input, period, rsi_window, ma_short, ma_long)
+    # Fetch the Ticker object LIVE without caching it to prevent the serialization error
+    ticker_obj = yf.Ticker(ticker_input)
 
 if df is None:
     st.error("Terminal initialization failure. Target asset node rejected connection.")
@@ -214,7 +212,7 @@ else:
         """, unsafe_allow_html=True)
 
     # ------------------------------------------
-    # TAB 2: INSTITUTIONAL FUNDAMENTAL CORE (BALANCE, INCOME, CASH FLOWS)
+    # TAB 2: INSTITUTIONAL FUNDAMENTAL CORE
     # ------------------------------------------
     with tab_fundamentals:
         st.subheader(f"🏢 Multi-Statement Ledger Audit Architecture: {ticker_input}")
@@ -252,7 +250,6 @@ else:
             st.markdown("---")
             st.subheader("📊 Primary Operational Vector Scaling (Historical Multi-Period Analysis)")
             
-            # Clean and isolate multi-period lines safely from yfinance sheets
             target_metrics = {}
             possible_keys = [
                 'FreeCashFlow', 'RepurchaseOfCapitalStock', 'RepaymentOfDebt', 'IssuanceOfDebt',
@@ -270,7 +267,6 @@ else:
                 years_labels = [d.strftime('%Y') for d in cashflow.columns]
                 chart_df = pd.DataFrame(target_metrics, index=years_labels).reset_index().rename(columns={'index': 'Year'})
                 
-                # Plotly grouped bar graph visualization
                 melted_df = chart_df.melt(id_vars='Year', var_name='Ledger Metric', value_name='Amount ($ Billions)')
                 fig_fund = px.bar(melted_df, x='Year', y='Amount ($ Billions)', color='Ledger Metric', bmode='group', template='plotly_dark')
                 fig_fund.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=380)
@@ -296,7 +292,6 @@ else:
             # --- FUNDAMENTAL HEALTH INSIGHT COMMENTARY ---
             st.markdown("---")
             f_fcf = target_metrics.get('FreeCashFlow', [0])[0]
-            f_netinc = target_metrics.get('NetIncomeFromContinuingOperations', [0])[0]
             
             if f_fcf > 0 and debt_to_equity < 1.2:
                 f_health = "⭐ PREMIUM HEALTH CATEGORY: CAPITAL SUPREMACY"
@@ -316,26 +311,29 @@ else:
             st.warning(f"Fundamental structural indices currently adjusting for this specific asset ticker layout pipeline: {ex}")
 
     # ------------------------------------------
-    # TAB 3: DIVIDEND MILESTONE MATRIX & ELIGIBILITY DETAILS
+    # TAB 3: DIVIDEND MILESTONE MATRIX
     # ------------------------------------------
     with tab_dividends:
         st.subheader(f"💎 Yield Distributions & Shareholder Governance Metrics")
         
-        info = ticker_obj.info
-        div_rate = info.get('dividendRate', 0.0)
-        div_yield = info.get('dividendYield', 0.0) * 100 if info.get('dividendYield') else 0.0
-        payout_ratio = info.get('payoutRatio', 0.0) * 100 if info.get('payoutRatio') else 0.0
-        
-        c_div1, c_div2, c_div3 = st.columns(3)
-        with c_div1:
-            st.metric(label="Trailing Dividend Rate", value=f"${div_rate:.2f} / Share")
-            st.caption("Total absolute annual cash return output paid out per isolated common stock allocation unit.")
-        with c_div2:
-            st.metric(label="Calculated Forward Yield", value=f"{div_yield:.2f}%")
-            st.caption("Annualized cash dividend payout percentage computed against current spot market valuations.")
-        with c_div3:
-            st.metric(label="Capital Payout Ratio", value=f"{payout_ratio:.2f}%")
-            st.caption("Percentage of corporate net trailing earnings scaled to finance immediate cash distribution actions.")
+        try:
+            info = ticker_obj.info
+            div_rate = info.get('dividendRate', 0.0) if info.get('dividendRate') is not None else 0.0
+            div_yield = (info.get('dividendYield', 0.0) * 100) if info.get('dividendYield') is not None else 0.0
+            payout_ratio = (info.get('payoutRatio', 0.0) * 100) if info.get('payoutRatio') is not None else 0.0
+            
+            c_div1, c_div2, c_div3 = st.columns(3)
+            with c_div1:
+                st.metric(label="Trailing Dividend Rate", value=f"${div_rate:.2f} / Share")
+                st.caption("Total absolute annual cash return output paid out per isolated common stock allocation unit.")
+            with c_div2:
+                st.metric(label="Calculated Forward Yield", value=f"{div_yield:.2f}%")
+                st.caption("Annualized cash dividend payout percentage computed against current spot market valuations.")
+            with c_div3:
+                st.metric(label="Capital Payout Ratio", value=f"{payout_ratio:.2f}%")
+                st.caption("Percentage of corporate net trailing earnings scaled to finance immediate cash distribution actions.")
+        except:
+            st.caption("Unable to load live dashboard ticker statistics details.")
 
         st.markdown("---")
         st.subheader("📋 Legal Shareholder Eligibility Framework Requirements")
@@ -347,7 +345,6 @@ else:
         4. **Payment Date:** Liquid cash capital packages are directly cleared to stakeholder ledger accounts.
         """)
         
-        # Display historical data distribution timeline table logs
         try:
             div_history = ticker_obj.dividends
             if not div_history.empty:
