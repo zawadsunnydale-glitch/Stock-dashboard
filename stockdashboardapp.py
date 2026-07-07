@@ -8,81 +8,88 @@ import plotly.express as px
 
 # Establish production terminal page layout
 st.set_page_config(
-    page_title="AlphaNexus | Quantum Trading Terminal", 
+    page_title="AlphaNexus Matrix | Multi-Asset Intelligence Terminal", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
-# Premium CSS for high-tech terminal theme, custom animations, and neon color palettes
+# Advanced CSS styling injection for premium glassmorphism layouts and color structures
 st.markdown("""
     <style>
-    /* Dark Cyberpunk Theme background */
-    .main { background-color: #060913; color: #E2E8F0; }
+    .main { background-color: #050811; color: #E2E8F0; }
     
-    /* Neon glow effect for metric blocks */
+    /* Glowing metric tags */
     div[data-testid="stMetricValue"] { 
-        font-size: 28px !important; 
+        font-size: 26px !important; 
         font-weight: 800 !important; 
         color: #00FFCC !important;
-        text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
     }
     
-    /* Animated Hover Effect for Sidebar items and cards */
+    /* Institutional insights box panels */
+    .ai-card {
+        background-color: #0d1326;
+        border-left: 5px solid #00FFCC;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+    .ai-card-fundamental {
+        background-color: #0d1326;
+        border-left: 5px solid #9B5DE5;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+    
+    /* Interactive metric hovering animation matrix */
     div[data-testid="metric-container"] {
-        background-color: #0f1424;
+        background-color: #0a0f1d;
         border: 1px solid #1e293b;
         padding: 15px;
         border-radius: 10px;
-        transition: all 0.3s ease-in-out;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     div[data-testid="metric-container"]:hover {
         transform: translateY(-4px);
         border-color: #00FFCC;
-        box-shadow: 0 4px 20px rgba(0, 255, 204, 0.15);
+        box-shadow: 0 4px 25px rgba(0, 255, 204, 0.15);
     }
-    
-    /* Sleek scrollbar styling */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00FFCC; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🌌 ALPHANEXUS QUANT TERMINAL")
-st.caption("AI-Driven Predictive Workspace Engine • Real-Time Core Stream Processing")
+st.title("🌌 ALPHANEXUS TOTAL INTELLIGENCE TERMINAL")
+st.caption("Cross-Paradigm Engine • Live Quantitative Backtesting & Institutional Deep-Dive Fundamental Core")
 st.markdown("---")
 
 # ==========================================
-# SIDEBAR CONTROLS (Dropdown Ticker Selector)
+# SIDEBAR RADAR PARAMETERS
 # ==========================================
 st.sidebar.header("🎛️ TERMINAL PARAMETERS")
 
-# CHANGED: Replaced text input with a beautiful preset dropdown list for auto-updating clicks
 ticker_choice = st.sidebar.selectbox(
-    "Select Target Asset", 
-    ["AAPL (Apple)", "MSFT (Microsoft)", "TSLA (Tesla)", "NVDA (NVIDIA)", "SPY (S&P 500 Index)", "BTC-USD (Bitcoin)", "AMZN (Amazon)", "GOOGL (Google)"],
+    "Select Target Asset Cluster", 
+    ["AAPL (Apple)", "MSFT (Microsoft)", "TSLA (Tesla)", "NVDA (NVIDIA)", "SPY (S&P 500 Index)", "AMZN (Amazon)", "GOOGL (Google)"],
     index=0
 )
-# Extract just the ticker symbol from the chosen option
 ticker_input = ticker_choice.split(" ")[0]
-
-# Interval Configuration
 period = st.sidebar.selectbox("Historical Training Window", ["1y", "2y", "5y"], index=1)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔮 Feature Engineering Lookbacks")
+st.sidebar.subheader("🔮 Feature Space Offsets")
 rsi_window = st.sidebar.slider("RSI Spectrum Window", min_value=5, max_value=30, value=14)
 ma_short = st.sidebar.slider("Short EMA Signal Line", min_value=5, max_value=50, value=12)
 ma_long = st.sidebar.slider("Long EMA Base Line", min_value=10, max_value=100, value=26)
 
 # ==========================================
-# DATA INGESTION & PIPELINE ENGINE
+# DYNAMIC PIPELINE EXTRACTION MATRIX
 # ==========================================
-@st.cache_data(ttl=1800)  # Cache for 30 minutes for blazing fast automatic updates
-def fetch_and_build_pipeline(ticker, prd, rsi_w, ma_s, ma_l):
+@st.cache_data(ttl=1800)
+def fetch_full_market_data(ticker, prd, rsi_w, ma_s, ma_l):
+    # Quant pricing data
     raw_df = yf.download(ticker, period=prd, interval="1d")
     if raw_df.empty:
-        return None
+        return None, None
     
     df = raw_df.copy()
     if isinstance(df.columns, pd.MultiIndex):
@@ -101,20 +108,22 @@ def fetch_and_build_pipeline(ticker, prd, rsi_w, ma_s, ma_l):
     
     df['Target'] = np.where(df['Returns'].shift(-1) > 0, 1, 0)
     df.dropna(inplace=True)
-    return df
-
-# Trigger processing automatically based on user click choice
-with st.spinner("Synchronizing with cloud exchange liquidation logs..."):
-    df = fetch_and_build_pipeline(ticker_input, period, rsi_window, ma_short, ma_long)
     
-if df is None or len(df) < 50:
-    st.error("Matrix compilation error. Incomplete financial dataset retrieved.")
+    # Fundamental corporate data mining via single ticker instance object
+    ticker_obj = yf.Ticker(ticker)
+    
+    return df, ticker_obj
+
+with st.spinner("Compiling cross-paradigm databases and auditing financial log streams..."):
+    df, ticker_obj = fetch_full_market_data(ticker_input, period, rsi_window, ma_short, ma_long)
+
+if df is None:
+    st.error("Terminal initialization failure. Target asset node rejected connection.")
 else:
-    # Train Predictive AI
+    # Train Predictive Quant Classifier Model
     features = ['MACD', 'RSI', 'Close']
     X = df[features].values
     y = df['Target'].values
-    
     split_idx = int(len(df) * 0.8)
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
@@ -130,77 +139,231 @@ else:
     backtest_df['Cumulative_Strategy_Return'] = (1 + backtest_df['Strategy_Returns']).cumprod() - 1
     backtest_df['Cumulative_Buy_Hold_Return'] = (1 + backtest_df['Returns']).cumprod() - 1
 
-    # Real-Time Statistics Calculations
+    # Macro Return Data Metrics
     final_strat = backtest_df['Cumulative_Strategy_Return'].iloc[-1] * 100
     final_bh = backtest_df['Cumulative_Buy_Hold_Return'].iloc[-1] * 100
     alpha_metric = final_strat - final_bh
     correct_signals = (backtest_df['Predicted_Target'] == backtest_df['Target']).sum()
     win_rate = (correct_signals / len(backtest_df)) * 100
 
-    # Render Side Matrix Stats Panel
+    # Populate Live System Performance on Sidebar
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📡 STRATEGY LIVE RECAP")
+    st.sidebar.subheader("📡 SYSTEM COGNITION OVERVIEW")
     st.sidebar.metric(label="Model Win Probability", value=f"{win_rate:.1f}%")
-    st.sidebar.metric(label="Calculated Excess Alpha", value=f"{alpha_metric:+.2f}%", delta=f"Index Bench: {final_bh:.1f}%")
-    st.sidebar.metric(label="Strategy Compounded Yield", value=f"{final_strat:.1f}%")
+    st.sidebar.metric(label="Excess Alpha Variance", value=f"{alpha_metric:+.2f}%", delta=f"Index: {final_bh:.1f}%")
 
     # ==========================================
-    # WORKSPACE OUTPUT LAYOUT (HIGH-TECH TABS)
+    # WORKSPACE OUTPUT PANELS (CORE INTERFACE TABS)
     # ==========================================
-    tab_market, tab_analytics = st.tabs(["⚡ EXCHANGE RADAR TERMINAL", "📈 STRATEGY GROWTH ENGINE"])
+    tab_market, tab_fundamentals, tab_dividends, tab_analytics = st.tabs([
+        "⚡ EXCHANGE EXECUTION RADAR", 
+        "🏦 INSTITUTIONAL FUNDAMENTAL CORE",
+        "💎 DIVIDEND MILESTONE MATRIX",
+        "📈 EQUITY VECTOR ANALYTICS"
+    ])
     
+    # ------------------------------------------
+    # TAB 1: TECH RADAR TERMINAL (PRICING & ACTIVE SIGNALS)
+    # ------------------------------------------
     with tab_market:
         col_chart, col_feed = st.columns([2, 1])
-        
         with col_chart:
-            st.subheader(f"📊 Live Candlestick Node Flow • {ticker_input}")
-            candle_display = backtest_df.tail(60) # Keep it zoomed in and ultra crisp
-            
+            st.subheader(f"Interactive Candlestick Flux Matrix • {ticker_input}")
+            candle_display = backtest_df.tail(60)
             fig_candle = go.Figure()
-            # Custom neon styled Candlesticks
             fig_candle.add_trace(go.Candlestick(
-                x=candle_display.index,
-                open=candle_display['Open'], high=candle_display['High'],
-                low=candle_display['Low'], close=candle_display['Close'],
-                name="Asset Canvas",
+                x=candle_display.index, open=candle_display['Open'], high=candle_display['High'],
+                low=candle_display['Low'], close=candle_display['Close'], name="Price Framework",
                 increasing_line_color='#00FFCC', decreasing_line_color='#FF007F'
             ))
-            
-            # Superimpose holographic triangle signal buy arrows
             buy_signals = candle_display[candle_display['Predicted_Target'] == 1]
             fig_candle.add_trace(go.Scatter(
-                x=buy_signals.index, y=buy_signals['Low'] * 0.988,
-                mode='markers', name='AI LONG Signal Trigger',
+                x=buy_signals.index, y=buy_signals['Low'] * 0.988, mode='markers', name='System LONG Entry',
                 marker=dict(symbol='triangle-up', size=13, color='#00FFCC', line=dict(color='#FFFFFF', width=1))
             ))
-            
-            fig_candle.update_layout(
-                template="plotly_dark", 
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                xaxis_rangeslider_visible=False, height=450, margin=dict(l=10, r=10, t=10, b=10)
-            )
+            fig_candle.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, height=380, margin=dict(l=10, r=10, t=10, b=10))
             st.plotly_chart(fig_candle, use_container_width=True)
             
         with col_feed:
-            st.subheader("📋 Core Signal Stream Log")
+            st.subheader("📋 Active Pipeline Stream")
             stream_view = backtest_df[['Close', 'Predicted_Target', 'Prediction_Probability']].tail(8).copy()
             stream_view['Signal Outflow'] = stream_view['Predicted_Target'].apply(lambda x: "🟢 ALLOCATE LONG" if x == 1 else "⚪ POSITION FLAT")
             stream_view['Model Conviction'] = stream_view['Prediction_Probability'].apply(lambda x: f"{x*100:.1f}%")
-            
             st.dataframe(stream_view[['Close', 'Signal Outflow', 'Model Conviction']].iloc[::-1], use_container_width=True)
-            
-    with tab_analytics:
-        st.subheader("🛠️ Algorithmic Growth Metrics & Alpha Variance")
+
+        # Automated Operational Strategy Insights
+        st.markdown("---")
+        recent_3m = backtest_df.tail(60)
+        recent_strat_perf = (recent_3m['Strategy_Returns'] + 1).prod() - 1
+        recent_bh_perf = (recent_3m['Returns'] + 1).prod() - 1
+        latest_signal = backtest_df['Predicted_Target'].iloc[-1]
+        latest_prob = backtest_df['Prediction_Probability'].iloc[-1] * 100
         
+        if latest_signal == 1 and latest_prob >= 55.0:
+            action_plan = "🚀 ACTIVE ALLOCATION CRITERIA MATCHED: BUY / LONG"
+            strategy_advice = f"The Random Forest model outputs an elevated **{latest_prob:.1f}% conviction level**. Technical indicator configurations imply structural alpha velocity is opening a positive window for immediate spot accumulation."
+        else:
+            action_plan = "🛑 PROTECT RESERVES: LIQUID CASH POSITION"
+            strategy_advice = f"Predictive matrices register defensive headwinds or directionless baseline chop. The alpha generation model commands an absolute transition into secure cash hedges to prevent drawdown volatility."
+
+        st.markdown(f"""
+        <div class="ai-card">
+            <h4 style="color: #00FFCC; margin-top: 0;">🔮 Automated Trade Execution Brief: <span style="color: #FFF;">{action_plan}</span></h4>
+            <p style="font-size: 15px; line-height: 1.6; margin-bottom: 0;">{strategy_advice}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ------------------------------------------
+    # TAB 2: INSTITUTIONAL FUNDAMENTAL CORE (BALANCE, INCOME, CASH FLOWS)
+    # ------------------------------------------
+    with tab_fundamentals:
+        st.subheader(f"🏢 Multi-Statement Ledger Audit Architecture: {ticker_input}")
+        
+        try:
+            # Extract raw corporate ledgers
+            cashflow = ticker_obj.cashflow
+            balance = ticker_obj.balance_sheet
+            income = ticker_obj.financials
+            
+            # --- LIQUIDITY PERFORMANCE MATRIX CALCULATIONS ---
+            current_assets = balance.loc['CurrentAssets'].iloc[0] if 'CurrentAssets' in balance.index else 1
+            current_liab = balance.loc['CurrentLiabilities'].iloc[0] if 'CurrentLiabilities' in balance.index else 1
+            inventory = balance.loc['Inventory'].iloc[0] if 'Inventory' in balance.index else 0
+            total_debt = balance.loc['TotalDebt'].iloc[0] if 'TotalDebt' in balance.index else 1
+            total_equity = balance.loc['StockholdersEquity'].iloc[0] if 'StockholdersEquity' in balance.index else 1
+            
+            current_ratio = current_assets / current_liab
+            quick_ratio = (current_assets - inventory) / current_liab
+            debt_to_equity = total_debt / total_equity
+            
+            # Display Liquidity KPI Grid
+            c_liq1, c_liq2, c_liq3 = st.columns(3)
+            with c_liq1:
+                st.metric(label="Current Ratio (Short-Term Liquidity)", value=f"{current_ratio:.2f}x")
+                st.caption("Standard target > 1.5x. Indicates capability to honor maturing obligations via liquid assets.")
+            with c_liq2:
+                st.metric(label="Quick Ratio (Acid-Test Matrix)", value=f"{quick_ratio:.2f}x")
+                st.caption("Excludes raw inventory overheads. Measures high-velocity immediate liquidity coverage.")
+            with c_liq3:
+                st.metric(label="Debt-to-Equity Leverage Ratio", value=f"{debt_to_equity:.2f}x")
+                st.caption("Measures structural capital balance risk. Elevated values imply high debt financing reliance.")
+
+            # --- DYNAMIC STRUCTURAL FUNDAMENTAL CHART GENERATION ---
+            st.markdown("---")
+            st.subheader("📊 Primary Operational Vector Scaling (Historical Multi-Period Analysis)")
+            
+            # Clean and isolate multi-period lines safely from yfinance sheets
+            target_metrics = {}
+            possible_keys = [
+                'FreeCashFlow', 'RepurchaseOfCapitalStock', 'RepaymentOfDebt', 'IssuanceOfDebt',
+                'CapitalExpenditure', 'OperatingCashFlow', 'NetIncomeFromContinuingOperations',
+                'DepreciationAndAmortization', 'ChangeInWorkingCapital'
+            ]
+            
+            for key in possible_keys:
+                if key in cashflow.index:
+                    target_metrics[key] = cashflow.loc[key].values / 1e9 # Convert values to Billions ($B)
+                elif key in income.index:
+                    target_metrics[key] = income.loc[key].values / 1e9
+                    
+            if target_metrics:
+                years_labels = [d.strftime('%Y') for d in cashflow.columns]
+                chart_df = pd.DataFrame(target_metrics, index=years_labels).reset_index().rename(columns={'index': 'Year'})
+                
+                # Plotly grouped bar graph visualization
+                melted_df = chart_df.melt(id_vars='Year', var_name='Ledger Metric', value_name='Amount ($ Billions)')
+                fig_fund = px.bar(melted_df, x='Year', y='Amount ($ Billions)', color='Ledger Metric', bmode='group', template='plotly_dark')
+                fig_fund.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=380)
+                st.plotly_chart(fig_fund, use_container_width=True)
+            
+            # --- INTERACTIVE STATEMENT EXPLORATION MATRICES ---
+            st.markdown("---")
+            st.subheader("🔍 Production Statement Ledger Data Stream Subsections")
+            statement_select = st.selectbox("Isolate Statement Sheet View", ["Operating & Investing Cash Flows", "Financing Cash Flows & Debt Ledger", "Income Statement Performance Details"])
+            
+            if statement_select == "Operating & Investing Cash Flows":
+                sub_keys = ['OperatingCashFlow', 'CashFlowFromContinuingOperatingActivities', 'DepreciationAndAmortization', 'DepreciationAmortizationDepletion', 'DeferredIncomeTax', 'AssetImpairmentCharge', 'StockBasedCompensation', 'ChangeInWorkingCapital', 'ChangeInReceivables', 'ChangeInInventory', 'ChangeInPayablesAndAccruedExpense', 'InvestingCashFlow', 'CashFlowFromContinuingInvestingActivities', 'PurchaseOfPPE', 'NetPPEPurchaseAndSale', 'PurchaseOfBusiness', 'NetBusinessPurchaseAndSale', 'PurchaseOfInvestment', 'SaleOfInvestment', 'NetInvestmentPurchaseAndSale']
+                st.dataframe(cashflow.loc[cashflow.index.intersection(sub_keys)], use_container_width=True)
+                
+            elif statement_select == "Financing Cash Flows & Debt Ledger":
+                sub_keys = ['FinancingCashFlow', 'CashFlowFromContinuingFinancingActivities', 'NetLongTermDebtIssuance', 'LongTermDebtIssuance', 'LongTermDebtPayments', 'NetShortTermDebtIssuance', 'ShortTermDebtIssuance', 'NetIssuancePaymentsOfDebt', 'CommonStockIssuance', 'CommonStockPayments', 'NetCommonStockIssuance', 'CommonStockDividendPaid', 'CashDividendsPaid', 'NetOtherFinancingCharges', 'BeginningCashPosition', 'EndCashPosition', 'ChangesInCash']
+                st.dataframe(cashflow.loc[cashflow.index.intersection(sub_keys)], use_container_width=True)
+                
+            else:
+                sub_keys = ['NetIncomeFromContinuingOperations', 'OperatingGainsLosses', 'GainLossOnInvestmentSecurities', 'UnrealizedGainLossOnInvestmentSecurities']
+                st.dataframe(income.loc[income.index.intersection(sub_keys)], use_container_width=True)
+
+            # --- FUNDAMENTAL HEALTH INSIGHT COMMENTARY ---
+            st.markdown("---")
+            f_fcf = target_metrics.get('FreeCashFlow', [0])[0]
+            f_netinc = target_metrics.get('NetIncomeFromContinuingOperations', [0])[0]
+            
+            if f_fcf > 0 and debt_to_equity < 1.2:
+                f_health = "⭐ PREMIUM HEALTH CATEGORY: CAPITAL SUPREMACY"
+                f_analysis = f"Corporate fundamental analysis establishes outstanding free cash allocations ({f_fcf:.2f}B latest). Debt ratios ({debt_to_equity:.2f}x) verify low balance-sheet distress thresholds, providing sufficient margins to reinvest in capital expansions and share buybacks."
+            else:
+                f_health = "⚠️ MODERATE TO HIGH RISK FINANCIAL OVERHEAD DETECTED"
+                f_analysis = f"The target corporate frame is navigating structural balance adaptations. Leverage structures evaluate at {debt_to_equity:.2f}x while net conversion flows show a tighter free cash flow margin profile. Strategic capital monitoring is heavily advised."
+                
+            st.markdown(f"""
+            <div class="ai-card-fundamental">
+                <h4 style="color: #9B5DE5; margin-top: 0;">🏛️ Fundamental Risk Analysis: <span style="color: #FFF;">{f_health}</span></h4>
+                <p style="font-size: 15px; line-height: 1.6; margin-bottom: 0;">{f_analysis}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        except Exception as ex:
+            st.warning(f"Fundamental structural indices currently adjusting for this specific asset ticker layout pipeline: {ex}")
+
+    # ------------------------------------------
+    # TAB 3: DIVIDEND MILESTONE MATRIX & ELIGIBILITY DETAILS
+    # ------------------------------------------
+    with tab_dividends:
+        st.subheader(f"💎 Yield Distributions & Shareholder Governance Metrics")
+        
+        info = ticker_obj.info
+        div_rate = info.get('dividendRate', 0.0)
+        div_yield = info.get('dividendYield', 0.0) * 100 if info.get('dividendYield') else 0.0
+        payout_ratio = info.get('payoutRatio', 0.0) * 100 if info.get('payoutRatio') else 0.0
+        
+        c_div1, c_div2, c_div3 = st.columns(3)
+        with c_div1:
+            st.metric(label="Trailing Dividend Rate", value=f"${div_rate:.2f} / Share")
+            st.caption("Total absolute annual cash return output paid out per isolated common stock allocation unit.")
+        with c_div2:
+            st.metric(label="Calculated Forward Yield", value=f"{div_yield:.2f}%")
+            st.caption("Annualized cash dividend payout percentage computed against current spot market valuations.")
+        with c_div3:
+            st.metric(label="Capital Payout Ratio", value=f"{payout_ratio:.2f}%")
+            st.caption("Percentage of corporate net trailing earnings scaled to finance immediate cash distribution actions.")
+
+        st.markdown("---")
+        st.subheader("📋 Legal Shareholder Eligibility Framework Requirements")
+        st.info("""
+        To capture corporate cash distribution streams legally, portfolio capital allocations must meet explicit time thresholds:
+        1. **Declaration Date:** The board of directors formally announces upcoming dividend distribution configurations.
+        2. **Ex-Dividend Date (The Critical Cutoff):** Capital allocation entry *must occur at least one full market session before* this specific clearing date. Selling assets on or after this session maintains entitlement to distribution payouts.
+        3. **Record Date:** Corporate internal auditing ledger logs register all account entities legally holding title to company shares.
+        4. **Payment Date:** Liquid cash capital packages are directly cleared to stakeholder ledger accounts.
+        """)
+        
+        # Display historical data distribution timeline table logs
+        try:
+            div_history = ticker_obj.dividends
+            if not div_history.empty:
+                st.subheader("⏳ Historical Distribution Timeline Registers")
+                div_clean = div_history.to_frame().sort_index(ascending=False).head(10)
+                st.dataframe(div_clean, use_container_width=True)
+        except:
+            st.caption("Asset ticker maintains non-distributing or zero regular cash dividend operations.")
+
+    # ------------------------------------------
+    # TAB 4: DEEP METRICS EQUITY BACKTEST ANALYTICS
+    # ------------------------------------------
+    with tab_analytics:
+        st.subheader("🛠️ Strategy Equity Growth Variance Engine")
         fig_equity = go.Figure()
-        # High contrast professional neon colors
         fig_equity.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Strategy_Return']*100, mode='lines', name='AI Predictive Alpha Model', line=dict(color='#00FFCC', width=3)))
         fig_equity.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Buy_Hold_Return']*100, mode='lines', name='Passive Benchmark Index', line=dict(color='#FF007F', width=1.5, dash='longdashdot')))
-        
-        fig_equity.update_layout(
-            template="plotly_dark",
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            xaxis_title="Simulation Dates", yaxis_title="Growth Vector Percentage (%)",
-            height=400, margin=dict(l=10, r=10, t=10, b=10), hovermode="x unified"
-        )
+        fig_equity.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Simulation Dates", yaxis_title="Growth Vector Percentage (%)", height=400, margin=dict(l=10, r=10, t=10, b=10), hovermode="x unified")
         st.plotly_chart(fig_equity, use_container_width=True)
