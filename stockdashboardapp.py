@@ -3,13 +3,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Set up the page layout
+# Set up the page layout to wide mode for a modern look
 st.set_page_config(page_title="Quant Prediction Dashboard", layout="wide")
 
 st.title("📈 Stock Return Prediction Dashboard")
 st.markdown("---")
 
-# Load the simulation results
+# Load the simulation results from GitHub
 @st.cache_data
 def load_data():
     df = pd.read_csv("simulation_results.csv")
@@ -26,7 +26,7 @@ try:
     # --- SIDEBAR: FINANCIAL PERFORMANCE METRICS ---
     st.sidebar.header("📊 Strategy Performance")
     
-    # Calculate some quick metrics on the fly from your sheet
+    # Calculate performance metrics on the fly from your sheet
     final_strat = df['Cumulative_Strategy_Return'].iloc[-1] * 100
     final_bh = df['Cumulative_Buy_Hold_Return'].iloc[-1] * 100
     outperformance = final_strat - final_bh
@@ -69,7 +69,7 @@ try:
     recent_df = df[['Actual_Target', 'Predicted_Target', 'Prediction_Probability']].tail(10).copy()
     recent_df['Signal'] = recent_df['Predicted_Target'].apply(lambda x: "🚀 BUY / LONG" if x == 1 else "🛑 HOLD / CASH")
     
-    # Reverse order so newest is at the top
+    # Reverse order so newest date is at the top
     st.dataframe(recent_df.iloc[::-1], use_container_width=True)
 
 except Exception as e:
