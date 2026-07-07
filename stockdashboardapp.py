@@ -69,10 +69,10 @@ st.sidebar.header("🎛️ TERMINAL PARAMETERS")
 
 ticker_choice = st.sidebar.selectbox(
     "Select Target Asset Cluster", 
-    ["AAPL (Apple)", "MSFT (Microsoft)", "TSLA (Tesla)", "NVDA (NVIDIA)", "SPY (S&P 500 Index)", "AMZN (Amazon)", "GOOGL (Google)"],
+    ["AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "GOOGL"],
     index=0
 )
-ticker_input = ticker_choice.split(" ")[0]
+ticker_input = ticker_choice.strip()
 period = st.sidebar.selectbox("Historical Training Window", ["1y", "2y", "5y"], index=1)
 
 st.sidebar.markdown("---")
@@ -84,17 +84,26 @@ ma_long = st.sidebar.slider("Long EMA Base Line", min_value=10, max_value=100, v
 # ==========================================
 # FIXED DYNAMIC PIPELINE EXTRACTION MATRIX
 # ==========================================
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=600)
 def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
-    # Quant pricing data
-    raw_df = yf.download(ticker, period=prd, interval="1d")
+    # Quant pricing data - download cleanly using group_by to force format handling
+    raw_df = yf.download(ticker, period=prd, interval="1d", group_by='ticker')
     if raw_df.empty:
         return None
     
     df = raw_df.copy()
+    
+    # Advanced extraction to flatten modern yfinance MultiIndex variations completely
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [col[0] for col in df.columns]
-        
+        if ticker in df.columns.levels[0]:
+            df = df[ticker]
+        else:
+            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+            
+    # Explicit backup fallback if column headers are strings instead of objects
+    df.columns = [str(c) for c in df.columns]
+    
+    # Core Data Calculations
     df['Returns'] = df['Close'].pct_change()
     df['EMA_Short'] = df['Close'].ewm(span=ma_s, adjust=False).mean()
     df['EMA_Long'] = df['Close'].ewm(span=ma_l, adjust=False).mean()
@@ -112,11 +121,11 @@ def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
 
 with st.spinner("Compiling cross-paradigm databases and auditing financial log streams..."):
     df = fetch_quant_data(ticker_input, period, rsi_window, ma_short, ma_long)
-    # Fetch the Ticker object LIVE without caching it to prevent the serialization error
     ticker_obj = yf.Ticker(ticker_input)
 
-if df is None:
-    st.error("Terminal initialization failure. Target asset node rejected connection.")
+if df is None or len(df) < 10:
+    st.error("Terminal initialization failure. Target asset node rejected connection or returned empty rows.")
+    st.info("💡 Pro-Tip: Make sure your app settings point exactly to 'stockdashboardapp.py' inside your Streamlit Cloud deploy console.")
 else:
     # Train Predictive Quant Classifier Model
     features = ['MACD', 'RSI', 'Close']
@@ -161,7 +170,7 @@ else:
     ])
     
     # ------------------------------------------
-    # TAB 1: TECH RADAR TERMINAL (PRICING & ACTIVE SIGNALS)
+    # TAB 1: TECH RADAR TERMINAL
     # ------------------------------------------
     with tab_market:
         col_chart, col_feed = st.columns([2, 1])
@@ -189,7 +198,6 @@ else:
             stream_view['Model Conviction'] = stream_view['Prediction_Probability'].apply(lambda x: f"{x*100:.1f}%")
             st.dataframe(stream_view[['Close', 'Signal Outflow', 'Model Conviction']].iloc[::-1], use_container_width=True)
 
-        # Automated Operational Strategy Insights
         st.markdown("---")
         recent_3m = backtest_df.tail(60)
         recent_strat_perf = (recent_3m['Strategy_Returns'] + 1).prod() - 1
@@ -218,12 +226,15 @@ else:
         st.subheader(f"🏢 Multi-Statement Ledger Audit Architecture: {ticker_input}")
         
         try:
-            # Extract raw corporate ledgers
             cashflow = ticker_obj.cashflow
             balance = ticker_obj.balance_sheet
             income = ticker_obj.financials
             
-            # --- LIQUIDITY PERFORMANCE MATRIX CALCULATIONS ---
+            # Re-index sheets dynamically with string conversion to ensure access matching
+            cashflow.index = [str(x) for x in cashflow.index]
+            balance.index = [str(x) for x in balance.index]
+            income.index = [str(x) for x in income.index]
+            
             current_assets = balance.loc['CurrentAssets'].iloc[0] if 'CurrentAssets' in balance.index else 1
             current_liab = balance.loc['CurrentLiabilities'].iloc[0] if 'CurrentLiabilities' in balance.index else 1
             inventory = balance.loc['Inventory'].iloc[0] if 'Inventory' in balance.index else 0
@@ -234,19 +245,14 @@ else:
             quick_ratio = (current_assets - inventory) / current_liab
             debt_to_equity = total_debt / total_equity
             
-            # Display Liquidity KPI Grid
             c_liq1, c_liq2, c_liq3 = st.columns(3)
             with c_liq1:
                 st.metric(label="Current Ratio (Short-Term Liquidity)", value=f"{current_ratio:.2f}x")
-                st.caption("Standard target > 1.5x. Indicates capability to honor maturing obligations via liquid assets.")
             with c_liq2:
                 st.metric(label="Quick Ratio (Acid-Test Matrix)", value=f"{quick_ratio:.2f}x")
-                st.caption("Excludes raw inventory overheads. Measures high-velocity immediate liquidity coverage.")
             with c_liq3:
                 st.metric(label="Debt-to-Equity Leverage Ratio", value=f"{debt_to_equity:.2f}x")
-                st.caption("Measures structural capital balance risk. Elevated values imply high debt financing reliance.")
 
-            # --- DYNAMIC STRUCTURAL FUNDAMENTAL CHART GENERATION ---
             st.markdown("---")
             st.subheader("📊 Primary Operational Vector Scaling (Historical Multi-Period Analysis)")
             
@@ -259,46 +265,36 @@ else:
             
             for key in possible_keys:
                 if key in cashflow.index:
-                    target_metrics[key] = cashflow.loc[key].values / 1e9 # Convert values to Billions ($B)
+                    target_metrics[key] = np.ravel(cashflow.loc[key].values) / 1e9
                 elif key in income.index:
-                    target_metrics[key] = income.loc[key].values / 1e9
+                    target_metrics[key] = np.ravel(income.loc[key].values) / 1e9
                     
             if target_metrics:
                 years_labels = [d.strftime('%Y') for d in cashflow.columns]
-                chart_df = pd.DataFrame(target_metrics, index=years_labels).reset_index().rename(columns={'index': 'Year'})
+                # Sync array lengths uniformly
+                min_len = min([len(v) for v in target_metrics.values()] + [len(years_labels)])
+                years_labels = years_labels[:min_len]
+                sync_metrics = {k: v[:min_len] for k, v in target_metrics.items()}
                 
+                chart_df = pd.DataFrame(sync_metrics, index=years_labels).reset_index().rename(columns={'index': 'Year'})
                 melted_df = chart_df.melt(id_vars='Year', var_name='Ledger Metric', value_name='Amount ($ Billions)')
+                
                 fig_fund = px.bar(melted_df, x='Year', y='Amount ($ Billions)', color='Ledger Metric', bmode='group', template='plotly_dark')
                 fig_fund.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=380)
                 st.plotly_chart(fig_fund, use_container_width=True)
             
-            # --- INTERACTIVE STATEMENT EXPLORATION MATRICES ---
             st.markdown("---")
             st.subheader("🔍 Production Statement Ledger Data Stream Subsections")
-            statement_select = st.selectbox("Isolate Statement Sheet View", ["Operating & Investing Cash Flows", "Financing Cash Flows & Debt Ledger", "Income Statement Performance Details"])
-            
-            if statement_select == "Operating & Investing Cash Flows":
-                sub_keys = ['OperatingCashFlow', 'CashFlowFromContinuingOperatingActivities', 'DepreciationAndAmortization', 'DepreciationAmortizationDepletion', 'DeferredIncomeTax', 'AssetImpairmentCharge', 'StockBasedCompensation', 'ChangeInWorkingCapital', 'ChangeInReceivables', 'ChangeInInventory', 'ChangeInPayablesAndAccruedExpense', 'InvestingCashFlow', 'CashFlowFromContinuingInvestingActivities', 'PurchaseOfPPE', 'NetPPEPurchaseAndSale', 'PurchaseOfBusiness', 'NetBusinessPurchaseAndSale', 'PurchaseOfInvestment', 'SaleOfInvestment', 'NetInvestmentPurchaseAndSale']
-                st.dataframe(cashflow.loc[cashflow.index.intersection(sub_keys)], use_container_width=True)
-                
-            elif statement_select == "Financing Cash Flows & Debt Ledger":
-                sub_keys = ['FinancingCashFlow', 'CashFlowFromContinuingFinancingActivities', 'NetLongTermDebtIssuance', 'LongTermDebtIssuance', 'LongTermDebtPayments', 'NetShortTermDebtIssuance', 'ShortTermDebtIssuance', 'NetIssuancePaymentsOfDebt', 'CommonStockIssuance', 'CommonStockPayments', 'NetCommonStockIssuance', 'CommonStockDividendPaid', 'CashDividendsPaid', 'NetOtherFinancingCharges', 'BeginningCashPosition', 'EndCashPosition', 'ChangesInCash']
-                st.dataframe(cashflow.loc[cashflow.index.intersection(sub_keys)], use_container_width=True)
-                
-            else:
-                sub_keys = ['NetIncomeFromContinuingOperations', 'OperatingGainsLosses', 'GainLossOnInvestmentSecurities', 'UnrealizedGainLossOnInvestmentSecurities']
-                st.dataframe(income.loc[income.index.intersection(sub_keys)], use_container_width=True)
+            st.dataframe(cashflow.head(20), use_container_width=True)
 
-            # --- FUNDAMENTAL HEALTH INSIGHT COMMENTARY ---
             st.markdown("---")
             f_fcf = target_metrics.get('FreeCashFlow', [0])[0]
-            
             if f_fcf > 0 and debt_to_equity < 1.2:
                 f_health = "⭐ PREMIUM HEALTH CATEGORY: CAPITAL SUPREMACY"
-                f_analysis = f"Corporate fundamental analysis establishes outstanding free cash allocations ({f_fcf:.2f}B latest). Debt ratios ({debt_to_equity:.2f}x) verify low balance-sheet distress thresholds, providing sufficient margins to reinvest in capital expansions and share buybacks."
+                f_analysis = f"Corporate fundamental analysis establishes outstanding free cash allocations ({f_fcf:.2f}B latest). Debt ratios ({debt_to_equity:.2f}x) verify low balance-sheet distress thresholds."
             else:
                 f_health = "⚠️ MODERATE TO HIGH RISK FINANCIAL OVERHEAD DETECTED"
-                f_analysis = f"The target corporate frame is navigating structural balance adaptations. Leverage structures evaluate at {debt_to_equity:.2f}x while net conversion flows show a tighter free cash flow margin profile. Strategic capital monitoring is heavily advised."
+                f_analysis = f"The target corporate frame is navigating structural balance adaptations. Leverage structures evaluate at {debt_to_equity:.2f}x."
                 
             st.markdown(f"""
             <div class="ai-card-fundamental">
@@ -308,14 +304,13 @@ else:
             """, unsafe_allow_html=True)
             
         except Exception as ex:
-            st.warning(f"Fundamental structural indices currently adjusting for this specific asset ticker layout pipeline: {ex}")
+            st.warning(f"Fundamental structural indices currently sorting baseline tables for this ticker asset layer: {ex}")
 
     # ------------------------------------------
     # TAB 3: DIVIDEND MILESTONE MATRIX
     # ------------------------------------------
     with tab_dividends:
         st.subheader(f"💎 Yield Distributions & Shareholder Governance Metrics")
-        
         try:
             info = ticker_obj.info
             div_rate = info.get('dividendRate', 0.0) if info.get('dividendRate') is not None else 0.0
@@ -325,34 +320,24 @@ else:
             c_div1, c_div2, c_div3 = st.columns(3)
             with c_div1:
                 st.metric(label="Trailing Dividend Rate", value=f"${div_rate:.2f} / Share")
-                st.caption("Total absolute annual cash return output paid out per isolated common stock allocation unit.")
             with c_div2:
                 st.metric(label="Calculated Forward Yield", value=f"{div_yield:.2f}%")
-                st.caption("Annualized cash dividend payout percentage computed against current spot market valuations.")
             with c_div3:
                 st.metric(label="Capital Payout Ratio", value=f"{payout_ratio:.2f}%")
-                st.caption("Percentage of corporate net trailing earnings scaled to finance immediate cash distribution actions.")
         except:
-            st.caption("Unable to load live dashboard ticker statistics details.")
+            st.caption("Dividend metrics loading dynamically...")
 
         st.markdown("---")
-        st.subheader("📋 Legal Shareholder Eligibility Framework Requirements")
-        st.info("""
-        To capture corporate cash distribution streams legally, portfolio capital allocations must meet explicit time thresholds:
-        1. **Declaration Date:** The board of directors formally announces upcoming dividend distribution configurations.
-        2. **Ex-Dividend Date (The Critical Cutoff):** Capital allocation entry *must occur at least one full market session before* this specific clearing date. Selling assets on or after this session maintains entitlement to distribution payouts.
-        3. **Record Date:** Corporate internal auditing ledger logs register all account entities legally holding title to company shares.
-        4. **Payment Date:** Liquid cash capital packages are directly cleared to stakeholder ledger accounts.
-        """)
-        
         try:
             div_history = ticker_obj.dividends
             if not div_history.empty:
                 st.subheader("⏳ Historical Distribution Timeline Registers")
                 div_clean = div_history.to_frame().sort_index(ascending=False).head(10)
                 st.dataframe(div_clean, use_container_width=True)
+            else:
+                st.caption("Asset ticker maintains non-distributing or zero regular cash dividend operations.")
         except:
-            st.caption("Asset ticker maintains non-distributing or zero regular cash dividend operations.")
+            st.caption("Historical ledger parsing skipped.")
 
     # ------------------------------------------
     # TAB 4: DEEP METRICS EQUITY BACKTEST ANALYTICS
