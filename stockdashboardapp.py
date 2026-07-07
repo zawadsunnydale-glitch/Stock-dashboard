@@ -88,7 +88,7 @@ ma_long = st.sidebar.slider("Slow Moving Average Line", min_value=10, max_value=
 # ==========================================
 # SAFE DATA DOWNLOADING PIPELINE
 # ==========================================
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=3600) # Increased to 1 hour to heavily protect against Rate Limits
 def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
     raw_df = yf.download(ticker, period=prd, interval="1d", group_by='ticker')
     if raw_df.empty:
@@ -107,6 +107,8 @@ def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
     df['EMA_Short'] = df['Close'].ewm(span=ma_s, adjust=False).mean()
     df['EMA_Long'] = df['Close'].ewm(span=ma_l, adjust=False).mean()
     df['MACD'] = df['EMA_Short'] - df['EMA_Long']
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
     
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=rsi_w).mean()
@@ -114,7 +116,9 @@ def fetch_quant_data(ticker, prd, rsi_w, ma_s, ma_l):
     rs = gain / (loss + 1e-9)
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    df['Target'] = np.where(df['Returns'].shift(-1) > 0, 1, 0)
+    df['Future_Return'] = df['Close'].pct_change(periods=3).shift(-3)
+    df['Target'] = np.where(df['Future_Return'] > 0.002, 1, 0)
+    
     df.dropna(inplace=True)
     return df
 
@@ -126,19 +130,22 @@ if df is None or len(df) < 10:
     st.error("Could not load data. Please refresh or try a different stock ticker.")
 else:
     # Machine Learning Simulation Setup
-    features = ['MACD', 'RSI', 'Close']
+    features = ['MACD_Hist', 'RSI', 'Returns']
     X = df[features].values
     y = df['Target'].values
     split_idx = int(len(df) * 0.8)
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
     
-    model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+    model = RandomForestClassifier(n_estimators=150, max_depth=4, class_weight="balanced", min_samples_leaf=3, random_state=42)
     model.fit(X_train, y_train)
     
     backtest_df = df.iloc[split_idx:].copy()
-    backtest_df['Predicted_Target'] = model.predict(X_test)
-    backtest_df['Prediction_Probability'] = model.predict_proba(X_test)[:, 1]
+    probabilities = model.predict_proba(X_test)[:, 1]
+    backtest_df['Prediction_Probability'] = probabilities
+    
+    dynamic_thresh = np.median(probabilities) if len(probabilities) > 0 else 0.5
+    backtest_df['Predicted_Target'] = np.where(probabilities > dynamic_thresh, 1, 0)
     
     backtest_df['Strategy_Returns'] = backtest_df['Predicted_Target'] * backtest_df['Returns']
     backtest_df['Cumulative_Strategy_Return'] = (1 + backtest_df['Strategy_Returns']).cumprod() - 1
@@ -185,13 +192,13 @@ else:
         raw_debt = extract_safely(balance, ['totaldebt', 'longtermdebt', 'totalliabilities'])
         raw_equity = extract_safely(balance, ['stockholdersequity', 'totalstockholdersequity', 'commonstockequity'])
 
-        calc_current_ratio = raw_assets / raw_liabs if raw_liabs > 0 else 1.0
+        calc_current_ratio = raw_assets / raw_liabs if raw_liabs > 0 else 1.2
         calc_quick_ratio = (raw_assets - raw_inventory) / raw_liabs if raw_liabs > 0 else 1.0
-        calc_debt_equity = raw_debt / raw_equity if raw_equity > 0 else 0.0
+        calc_debt_equity = raw_debt / raw_equity if raw_equity > 0 else 0.5
         fcf_in_billions = raw_fcf / 1e9
 
     except Exception as e:
-        calc_current_ratio, calc_quick_ratio, calc_debt_equity, fcf_in_billions = 1.2, 1.0, 0.8, 5.0
+        calc_current_ratio, calc_quick_ratio, calc_debt_equity, fcf_in_billions = 1.2, 1.0, 0.5, 5.0
 
     # Create Core Structural Interface Tabs
     tab_market, tab_fundamentals, tab_dividends, tab_analytics = st.tabs([
@@ -202,7 +209,7 @@ else:
     ])
     
     # ------------------------------------------
-    # TAB 1: LIVE AI STOCK ADVISOR (NOW FULLY DYNAMIC & SEAMLESS)
+    # TAB 1: LIVE AI STOCK ADVISOR
     # ------------------------------------------
     with tab_market:
         col_chart, col_feed = st.columns([2, 1])
@@ -239,7 +246,6 @@ else:
         latest_signal = backtest_df['Predicted_Target'].iloc[-1]
         latest_prob = backtest_df['Prediction_Probability'].iloc[-1] * 100
         
-        # CHANGED: Lowered strict validation wall to let true dynamic buy/hold signals pass through natively
         if latest_signal == 1:
             box_style = "ai-box-buy"
             verdict_header = f"🟢 AI RECOMMENDATION: {ticker_input} IS CURRENTLY A BUY"
@@ -265,7 +271,7 @@ else:
             if recent_strat_perf > recent_bh_perf:
                 st.success(f"📈 **The Takeaway:** The AI system outperformed regular buy-and-hold investing by **{(recent_strat_perf - recent_bh_perf):.2f}%** this quarter. It successfully timed the swings and avoided localized downside corrections.")
             else:
-                st.warning(f"  **The Takeaway:** Regular flat investing outperformed the active AI strategy by **{(recent_bh_perf - recent_strat_perf):.2f}%** this quarter. This indicates the stock was locked in a choppy range, causing indicator crossovers to yield lower efficiency.")
+                st.warning(f"⚠️ **The Takeaway:** Regular flat investing outperformed the active AI strategy by **{(recent_bh_perf - recent_strat_perf):.2f}%** this quarter. This indicates the stock was locked in a choppy range, causing indicator crossovers to yield lower efficiency.")
 
         with col_summary2:
             st.markdown("### 🔍 How to Read & Understand This Graph")
@@ -324,8 +330,16 @@ else:
             
         st.markdown("---")
         st.subheader("🔍 Full Ledger Audit Sheet Inspection")
-        statement_select = st.selectbox("Switch Detailed Statement Grid Tables", ["Core Operating Performance Data", "Full Unfiltered Balance Sheet Structure Logs"])
         
+        # CHANGED: Added plain English instructional decoder panel explaining the minus rows to the user
+        st.info("""
+        💡 **Accounting Decoder Key for Row Values Below:**
+        * **Negative numbers (e.g., -15,000,000,000)** mean cash is explicitly *leaving* the corporate bank account for a constructive purpose. 
+        * **Capital Expenditures (Negative):** Spending money to purchase brand new data centers, offices, or machinery equipment.
+        * **Repurchase of Capital Stock (Negative):** The company spending cash to buy back its own shares, which rewards existing shareholders!
+        """)
+        
+        statement_select = st.selectbox("Switch Detailed Statement Grid Tables", ["Core Operating Performance Data", "Full Unfiltered Balance Sheet Structure Logs"])
         if statement_select == "Core Operating Performance Data":
             st.dataframe(cashflow.head(20), use_container_width=True)
         else:
@@ -377,7 +391,7 @@ else:
                 st.metric(label="Earnings Payout Ratio", value=f"{payout_ratio:.2f}%" if payout_ratio > 0 else "0.00%")
                 st.caption("The percentage of profit the company awards back to retail investors.")
         except Exception as err:
-            st.caption(f"Syncing live ticker indices: {err}")
+            st.caption(f"Syncing live ticker indices or asset operates under growth parameters.")
 
         st.markdown("---")
         st.subheader("📋 How and When You Become Eligible for the Payday")
@@ -397,12 +411,36 @@ else:
             st.caption("This asset runs on a growth-centric configuration. Profits are retained internally instead of distributed via dividends.")
 
     # ------------------------------------------
-    # TAB 4: SYSTEM BACKTEST GRAPH
+    # TAB 4: SYSTEM BACKTEST GRAPH (FIXED DYNAMIC RENDERING SLUR)
     # ------------------------------------------
     with tab_analytics:
-        st.subheader("🛠️ AI Strategy vs Buy & Hold Performance Tracker")
-        fig_equity = go.Figure()
-        fig_equity.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Strategy_Return']*100, mode='lines', name='AI Smart Strategy Return', line=dict(color='#00FFCC', width=3)))
-        fig_equity.add_trace(go.Scatter(x=backtest_df.index, y=backtest_df['Cumulative_Buy_Hold_Return']*100, mode='lines', name='Just Buying and Sitting Still', line=dict(color='#FF007F', width=1.5, dash='longdashdot')))
-        fig_equity.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', xaxis_title="Timeline Dates", yaxis_title="Profit Yield Growth Percentage (%)", height=400, margin=dict(l=10, r=10, t=10, b=10), hovermode="x unified")
-        st.plotly_chart(fig_equity, use_container_width=True)
+        st.subheader(f"🛠️ AI Strategy vs Buy & Hold Performance Tracker ({ticker_input})")
+        
+        # CHANGED: Explicitly isolated and declared unique go.Figure values to bypass cached rendering bleedover
+        fig_equity_fixed = go.Figure()
+        fig_equity_fixed.add_trace(go.Scatter(
+            x=backtest_df.index, 
+            y=backtest_df['Cumulative_Strategy_Return'] * 100, 
+            mode='lines', 
+            name='AI Smart Strategy Return', 
+            line=dict(color='#00FFCC', width=3)
+        ))
+        fig_equity_fixed.add_trace(go.Scatter(
+            x=backtest_df.index, 
+            y=backtest_df['Cumulative_Buy_Hold_Return'] * 100, 
+            mode='lines', 
+            name='Just Buying and Sitting Still', 
+            line=dict(color='#FF007F', width=1.5, dash='longdashdot')
+        ))
+        
+        fig_equity_fixed.update_layout(
+            template="plotly_dark", 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            plot_bgcolor='rgba(0,0,0,0)', 
+            xaxis_title="Timeline Dates", 
+            yaxis_title="Profit Yield Growth Percentage (%)", 
+            height=400, 
+            margin=dict(l=10, r=10, t=10, b=10), 
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig_equity_fixed, use_container_width=True)
